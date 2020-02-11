@@ -63,6 +63,7 @@ class NERModel(BaseModel):
         self.wordPos_left_jean = tf.placeholder(tf.int32,shape=[None],name="wordPos_left_jean")
         self.wordPos_right_dress = tf.placeholder(tf.int32,shape=[None],name="wordPos_right_dress")
         self.wordPos_right_jean = tf.placeholder(tf.int32,shape=[None],name="wordPos_right_jean")
+        self.vertical_no = tf.placeholder(tf.float32,shape=[None,None,None],name="vertical_no")
 
         # shape = (batch size, max length of sentence, max length of word)
         self.char_ids = tf.placeholder(tf.int32, shape=[None, None, None],
@@ -127,7 +128,7 @@ class NERModel(BaseModel):
         dress_left_tag_id = [], jean_left_tag_id = [], dress_right_tag_id = [], jean_right_tag_id = [],
         window_left_dress = [], window_left_jean = [], window_right_dress = [], window_right_jean = [],
         dress_left_kmer_indices = [], jean_left_kmer_indices = [], dress_right_kmer_indices = [], jean_right_kmer_indices = [],        
-        wordPos_left_dress =[], wordPos_left_jean =[], wordPos_right_dress =[], wordPos_right_jean =[],
+        wordPos_left_dress =[], wordPos_left_jean =[], wordPos_right_dress =[], wordPos_right_jean =[],vertical_no = [], 
         lr = None,
         dropout= None):
 
@@ -144,7 +145,7 @@ class NERModel(BaseModel):
             dict {placeholder: value}
 
         """
-        
+
 
         # perform padding of the given data
         if self.config.use_chars:
@@ -154,6 +155,29 @@ class NERModel(BaseModel):
                 nlevels=2)
         else:
             word_ids, sequence_lengths = pad_sequences(x_batch, 0)
+        # creating mask variable to mask losses of individual verticals
+        mask_ = []
+        maxlen = max(sequence_lengths)
+        import pickle
+        with open("tags.pkl", "rb")as o:
+            tgs = pickle.load(o)
+        dress_lab = []
+        jean_lab = []
+        for i in tgs:
+            if("_dress" in i):
+                dress_lab.append(1.0)
+                jean_lab.append(0.0)
+            elif("_jean" in i):
+                dress_lab.append(0.0)
+                jean_lab.append(1.0)
+            else:
+                dress_lab.append(1.0)
+                jean_lab.append(1.0)
+        for i in vertical_no:
+            if(i==0):
+                mask_.append([dress_lab]*maxlen)
+            else:
+                mask_.append([jean_lab]*maxlen)
         if x_left_batch_dress is not None  :     
             if self.config.use_chars  :
                 char_ids_dress_left_coup, word_ids_dress_left_coup = zip(*x_left_batch_dress)
@@ -203,7 +227,8 @@ class NERModel(BaseModel):
                 self.wordPos_left_dress : wordPos_left_dress,
                 self.wordPos_left_jean : wordPos_left_jean,
                 self.wordPos_right_dress : wordPos_right_dress,
-                self.wordPos_right_jean : wordPos_right_jean
+                self.wordPos_right_jean : wordPos_right_jean,
+                self.vertical_no : mask_
             }
         else:
             feed = {
@@ -232,7 +257,8 @@ class NERModel(BaseModel):
                 self.wordPos_left_dress : [1],
                 self.wordPos_left_jean : [1],
                 self.wordPos_right_dress : [1],
-                self.wordPos_right_jean : [1]
+                self.wordPos_right_jean : [1],
+                self.vertical_no : [[[1]]]
             }
         if self.config.use_chars:
             feed[self.char_ids] = char_ids
@@ -638,15 +664,15 @@ class NERModel(BaseModel):
             self.logits = tf.reshape(pred, [-1, nsteps, self.config.ntags])
             
 
-
-
-    
+ 
 
 
     def add_loss_op(self):
         """Defines the loss"""
         if self.config.use_crf:
-            log_likelihood, trans_params = tf.contrib.crf.crf_log_likelihood(self.logits, self.y_batch, self.sequence_lengths)
+            # self.logits = tf.Print(self.logits, [self.logits], summarize = 100000)
+            # self.vertical_no = tf.Print(self.vertical_no,[self.vertical_no])
+            log_likelihood, trans_params = tf.contrib.crf.crf_log_likelihood(tf.multiply(self.logits,self.vertical_no), self.y_batch, self.sequence_lengths)
             #init_op = tf.initialize_all_variables()
             #with tf.Session() as sess:
                 #sess.run(init_op) 
@@ -819,14 +845,20 @@ class NERModel(BaseModel):
 
         
         iters = tf.constant(self.config.batch_size_coup)
-        w_alpha_left = tf.Variable(tf.random_normal([900], stddev=0.1),name="left")
-        w_alpha_right = tf.Variable(tf.random_normal([900], stddev=0.1),name="right")
+        w_alpha_left = tf.Variable(tf.zeros(shape = [900],dtype = tf.dtypes.float32),name="left")
+        w_alpha_right = tf.Variable(tf.zeros(shape = [900],dtype = tf.dtypes.float32),name="right")
 
         sentno = tf.constant([i for i in range(self.config.batch_size)])
         indices_left_dress = tf.stack([sentno,self.wordPos_left_dress,self.dress_left_tag_id], axis = 1)
         indices_left_jean = tf.stack([sentno,self.wordPos_left_jean,self.jean_left_tag_id], axis = 1)
         indices_right_dress = tf.stack([sentno,self.wordPos_right_dress,self.dress_right_tag_id], axis = 1)
         indices_right_jean = tf.stack([sentno,self.wordPos_right_jean,self.jean_right_tag_id], axis = 1)
+
+        # indices_left_dress = tf.Print(indices_left_dress,[indices_left_dress],summarize = 100000, message = "@@LD@@")
+        # indices_left_jean = tf.Print(indices_left_jean,[indices_left_jean],summarize = 100000, message = "@@LJ@@")
+        # indices_right_dress = tf.Print(indices_right_dress,[indices_right_dress],summarize = 100000, message = "@@RD@@")
+        # indices_right_jean = tf.Print(indices_right_jean, [indices_right_jean],summarize = 100000, message = "@@RJ@@")
+
         scores_left_dress = tf.gather_nd(self.logits_dress_left_coup,indices_left_dress)
         scores_left_jean = tf.gather_nd(self.logits_jean_left_coup,indices_left_jean)
         scores_right_dress = tf.gather_nd(self.logits_dress_right_coup,indices_right_dress)
@@ -838,11 +870,17 @@ class NERModel(BaseModel):
         dress_left = tf.reduce_sum(dress_left, axis = 1)
         A = tf.nn.softmax(dress_left)
         A /= 900
+
+        # A = tf.Print(A , [A],summarize = 25, message = "@@A@@")
+
         jean_right = tf.multiply(self.window_right_jean,w_alpha_right)
         jean_right = tf.multiply(jean_right,self.window_right_dress)
         jean_right = tf.reduce_sum(jean_right, axis = 1)
         A_ = tf.nn.softmax(jean_right)
         A_ /= 900
+
+        # A_ = tf.Print(A_ , [A_],summarize = 25, message = "@@B@@")
+
 
         iters = tf.constant(self.config.batch_size_coup)
         def cond(cp_loss,i, iters):
@@ -1121,6 +1159,8 @@ class NERModel(BaseModel):
             wordPos_left_jean   = returned_data[23]
             wordPos_right_dress = returned_data[24]
             wordPos_right_jean  = returned_data[25]
+            vertical_no         = returned_data[26]
+
 
             del returned_data   
 
@@ -1140,7 +1180,7 @@ class NERModel(BaseModel):
               dress_left_tag_id, jean_left_tag_id, dress_right_tag_id, jean_right_tag_id,
               window_left_dress, window_left_jean, window_right_dress, window_right_jean,
               dress_left_kmer_indices, jean_left_kmer_indices, dress_right_kmer_indices, jean_right_kmer_indices, 
-              wordPos_left_dress, wordPos_left_jean, wordPos_right_dress, wordPos_right_jean,
+              wordPos_left_dress, wordPos_left_jean, wordPos_right_dress, wordPos_right_jean,vertical_no,
               lr = self.config.lr,
               dropout= self.config.dropout)       
             st = time.time()           
@@ -1231,6 +1271,9 @@ class NERModel(BaseModel):
         else:
             file = open("Task2_actual_pred_labels.txt", "w")
         correct_preds, total_correct, total_preds = 0., 0., 0.
+        import pickle
+        with open("tags.pkl", "rb") as o:
+            tags_ = pickle.load(o)
         for words, labels, sumit in minibatches(test, self.config.batch_size,None,None):
             labels_pred, sequence_lengths = self.predict_batch1(words)
             for desc, lab, lab_pred, length in zip(sumit, labels, labels_pred,
@@ -1243,7 +1286,7 @@ class NERModel(BaseModel):
                 lab_pred = lab_pred[:length]
                 accs    += [a==b for (a, b) in zip(lab, lab_pred)]
                 for zz in zip(lab, lab_pred):
-                    file.write(str(zz[0]) + " " + str(zz[1]) +"\n")
+                    file.write(str(tags_[zz[0]]) + " " + str(tags_[zz[1]]) +"\n")
 
                 lab_chunks      = set(get_chunks(lab, self.config.vocab_tags))
                 lab_pred_chunks = set(get_chunks(lab_pred,
@@ -1274,6 +1317,10 @@ class NERModel(BaseModel):
         """
         accs = []
         out = ''
+        import pickle
+        with open("tags.pkl", "rb") as o:
+            tags_ = pickle.load(o)
+
         if(k==0):
             file = open("Task1_actual_pred_labels.txt", "w")
         else:
@@ -1291,7 +1338,7 @@ class NERModel(BaseModel):
                 lab_pred = lab_pred[:length]
                 accs    += [a==b for (a, b) in zip(lab, lab_pred)]
                 for zz in zip(lab, lab_pred):
-                    file.write(str(zz[0]) + " " + str(zz[1]) +"\n")
+                    file.write(str(tags_[zz[0]]) + " " + str(tags_[zz[1]]) +"\n")
 
                 lab_chunks      = set(get_chunks(lab, self.config.vocab_tags))
                 lab_pred_chunks = set(get_chunks(lab_pred,

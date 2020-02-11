@@ -60,9 +60,19 @@ class FKDataset(object):
 
     def __iter__(self):
         niter = 0
+        import pickle
+        with open("tags.pkl", "rb") as o:
+            labelList = pickle.load(o)
+        dress_labels = []
+        jean_labels = []
+        for idx,i in enumerate(labelList):
+            if("_dress" in i ):
+                dress_labels.append(idx)
+            if("_jean" in i):
+                jean_labels.append(idx)
         with open(self.filename) as f:
             f = f.readlines()
-            words, tags = [], []
+            words, tags, verticalno = [], [], -1
             for idx,line in enumerate(f):
                 line = line.strip()
                 #print(line)
@@ -71,17 +81,25 @@ class FKDataset(object):
                         niter += 1
                         if self.max_iter is not None and niter > self.max_iter:
                             break
-                        yield words, tags
-                        words, tags = [], []
+                        
+                        # print("@@@@@@ ", verticalno)
+                        yield words, tags, verticalno
+                        words, tags, verticalno = [], [], 0
                 else:
                     ls = line.split(' ')
                     word, tag = ls[0],ls[-1]
+                    # print(word, tag)
+                    if("_dress" in tag):
+                        verticalno = 0
+                    if("_jean" in tag):
+                        verticalno = 1
                     if self.processing_word is not None:
                         word = self.processing_word(word)
                     if self.processing_tag is not None:
                         tag = self.processing_tag(tag)
                     words += [word]
                     tags += [tag]
+
             #print(str(words))
             #print(str(tags))
 
@@ -612,6 +630,7 @@ def minibatches(data, minibatch_size,coupling_data,minibatch_size_coupling):
             wordPos_left_jean   23
             wordPos_right_dress 24
             wordPos_right_jean  25
+            vertical_no         26
             
           ]
 
@@ -628,6 +647,7 @@ def minibatches(data, minibatch_size,coupling_data,minibatch_size_coupling):
     kmer_right_jean, kmer_right_dress, kmer_left_dress, kmer_left_jean = [], [], [], []
     window_right_jean, window_right_dress, window_left_dress, window_left_jean = [], [], [], []
     wordPos_left_dress, wordPos_left_jean, wordPos_right_dress, wordPos_right_jean = [], [], [], []
+    vertical_no = []
 
 
     if coupling_data is not None:
@@ -636,13 +656,12 @@ def minibatches(data, minibatch_size,coupling_data,minibatch_size_coupling):
     X = []
     if(coupling_data is None):
     # for crf loss data
-        for (x,y) in data:
+        for (x,y,z) in data:
             if len(x_batch) == minibatch_size:
                 #print(x_batch)
                 X.append(x_batch)
                 X.append(y_batch)
                 X.append(word)
-
                 yield X
                 X = []
                 x_batch, y_batch, word = [], [], []
@@ -661,7 +680,7 @@ def minibatches(data, minibatch_size,coupling_data,minibatch_size_coupling):
             yield X
     else:
         for data_tuple in data:
-            (x,y) = data_tuple[0]
+            (x,y,z) = data_tuple[0]
             (x_coup,y_coup) = data_tuple[1]
             x_left_dress = x_coup[0]
             x_left_jean =  x_coup[4]
@@ -702,10 +721,12 @@ def minibatches(data, minibatch_size,coupling_data,minibatch_size_coupling):
                 X.append(wordPos_left_jean)
                 X.append(wordPos_right_dress)
                 X.append(wordPos_right_jean)
-                # print(wordPos_right_jean)
-
+                X.append(vertical_no)
+                import numpy as np
+                # print("\n\n\n\n", np.array(vertical_no).shape)
                 yield X
                 X = []
+                vertical_no = []
                 x_batch, y_batch, word= [], [], []
                 x_left_batch_dress, y_left_batch_dress, word_left_dress = [], [], []
                 x_left_batch_jean, y_left_batch_jean, word_left_jean= [], [], []
@@ -715,7 +736,7 @@ def minibatches(data, minibatch_size,coupling_data,minibatch_size_coupling):
                 kmer_right_jean, kmer_right_dress, kmer_left_dress, kmer_left_jean = [], [], [], []
                 window_right_jean, window_right_dress, window_left_dress, window_left_jean = [], [], [], []
                 wordPos_left_dress, wordPos_left_jean, wordPos_right_dress, wordPos_right_jean = [], [], [], []
-
+            sentsize = len(x)
             if type(x[0]) == tuple:
                 word += [x]
                 x = zip(*x)
@@ -764,6 +785,7 @@ def minibatches(data, minibatch_size,coupling_data,minibatch_size_coupling):
             wordPos_left_jean.append(x_coup[6])  
             wordPos_right_dress.append(x_coup[10])  
             wordPos_right_jean.append(x_coup[14]) 
+            vertical_no.append(z)
         #skipping last batch which is of size < config.batch_size
         # if(len(x_batch) != 0):
         #     X=[]

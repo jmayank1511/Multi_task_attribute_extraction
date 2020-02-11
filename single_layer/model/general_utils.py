@@ -113,7 +113,7 @@ class Progbar(object):
                 if type(self.sum_values[k]) is list:
                     info += ' - %s: %.4f' % (k,
                         self.sum_values[k][0] / max(1, self.sum_values[k][1]))
-                    ff = open("train_loss_values.txt","w")
+                    ff = open("_train_loss_values.txt","w")
                     ff.write(str(self.sum_values[k][0] / max(1, self.sum_values[k][1])) + "\n")
                     ff.close()
                 else:

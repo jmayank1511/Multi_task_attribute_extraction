@@ -174,8 +174,8 @@ def createLists():
     """
     creates 2 separate pkl files that contain list of sentences of individual tasks
     """
-    dress = open("data/dress_3_45_train.txt").read().split("\n \n")
-    jean  = open("data/jean_3_45_train.txt").read().split("\n \n")
+    dress = open("data/dress_3_45_train.txt").read().split("\n\n")
+    jean  = open("data/jean_3_45_train.txt").read().split("\n\n")
     dress_copy=[]
     for idx,sent in enumerate(dress):
         str=""
