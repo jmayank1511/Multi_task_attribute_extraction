@@ -3,7 +3,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import random
 import pickle
-max_possible_batch_size = 40
+max_possible_batch_size = 20
 def breakDict(data, name):
     """
     This function will break dict into sublists of size : max_possible_batch_size each
@@ -66,18 +66,23 @@ def createLambdaLists(cosine_8,dress_list,jean_list):
     jean_lambda = {}
     import copy
     print(len(cosine_8[0]))
-    for idx,i in enumerate(cosine_8[0]):
+    # cosine_8 contains 2 lists first contain dress indices and second one contains corrosponding jean indices 
+    for idx,i in enumerate(cosine_8[0]): # iterating over dress indices
         j = cosine_8[1][idx]
-        x = dress_list[i]
+        x = copy.deepcopy(dress_list[i])
         x.extend(jean_list[j])
         if(i in dress_lambda):
-            dress_lambda[i].append(x)
+            if(len(dress_lambda[i])<max_possible_batch_size):
+                dress_lambda[i].append(copy.deepcopy(x))
+            # else:
+            #     continue
         else:
-            dress_lambda[i] = [x]
+            dress_lambda[i] = [copy.deepcopy(x)]
         if(j in jean_lambda):
-            jean_lambda[j].append(x)
+            if(len(jean_lambda[j])<max_possible_batch_size):
+                jean_lambda[j].append(copy.deepcopy(x))
         else:
-            jean_lambda[j] = [x]
+            jean_lambda[j] = [copy.deepcopy(x)]
     print("filtering...")
     filterDicts(dress_lambda,"data/dress_lambda.pkl")
     filterDicts(jean_lambda,"data/jean_lambda.pkl")
@@ -97,7 +102,7 @@ def findSim():
     g1 = open('data/sentences_jean.txt','r')
     zeros = np.zeros(300)
     jeans = g1.readlines()
-    jean_window_vectors = [] # key: (sentno,centralWordPos,tag); Value = wordvector of window 3
+    jean_window_vectors = []
     jean_list = []
     dress_window_vectors = []
     dress_list = []
@@ -161,7 +166,7 @@ def findSim():
     dress_window_vectors_np = np.array(dress_window_vectors)
     jean_window_vectors_np = np.array(jean_window_vectors)
     cosine_sim = cosine_similarity(dress_window_vectors_np,jean_window_vectors_np)
-    cosine_8 = np.nonzero(cosine_sim>0.79)  #creates a tuple ([x cordinate],[y cordinate])
+    cosine_8 = np.nonzero(cosine_sim>0.5)  #creates a tuple ([x cordinate],[y cordinate])
     createLambdaLists( cosine_8,dress_list,jean_list)
 
         
