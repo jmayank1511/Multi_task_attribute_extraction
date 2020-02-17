@@ -330,49 +330,7 @@ class NERModel(BaseModel):
             word_embeddings = tf.nn.embedding_lookup(_word_embeddings,
                     self.word_ids, name="word_embeddings")
             self.word_embeddings = word_embeddings
-
-
-        with tf.variable_scope("chars", reuse = tf.AUTO_REUSE):
-            if self.config.use_chars:
-                # get char embeddings matrix
-                _char_embeddings = tf.get_variable(
-                        name="_char_embeddings",
-                        dtype=tf.float32,
-                        shape=[self.config.nchars, self.config.dim_char])
-                char_embeddings = tf.nn.embedding_lookup(_char_embeddings,
-                        self.char_ids, name="char_embeddings")
-
-
-                # put the time dimension on axis=1
-                s = tf.shape(char_embeddings)
-                char_embeddings = tf.reshape(char_embeddings,
-                        shape=[s[0]*s[1], s[-2], self.config.dim_char])
-                word_lengths = tf.reshape(self.word_lengths, shape=[s[0]*s[1]])
-
-                # bi lstm on chars
-                cell_fw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
-                        state_is_tuple=True)
-                cell_bw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
-                        state_is_tuple=True)
-                _output = tf.nn.bidirectional_dynamic_rnn(
-                        cell_fw, cell_bw, char_embeddings,
-                        sequence_length=word_lengths, dtype=tf.float32)
-
-                # read and concat output
-                _, ((_, output_fw), (_, output_bw)) = _output
-                output = tf.concat([output_fw, output_bw], axis=-1)
-
-                # shape = (batch size, max sentence length, char hidden size)
-                output = tf.reshape(output,
-                        shape=[s[0], s[1], 2*self.config.hidden_size_char])
-                word_embeddings = tf.concat([word_embeddings, output], axis=-1)
-
-        self.word_embeddings =  tf.nn.dropout(word_embeddings, self.dropout)
-        
-
-        # for coupling loss!!
-        
-        with tf.variable_scope("words"):
+            
             if self.config.embeddings is None:
                 self.logger.info("WARNING: randomly initializing word vectors")
                 _word_embeddings_dress_left_coup = tf.get_variable(
@@ -425,6 +383,39 @@ class NERModel(BaseModel):
         with tf.variable_scope("chars",reuse = tf.AUTO_REUSE):
             if self.config.use_chars:
                 # get char embeddings matrix
+                _char_embeddings = tf.get_variable(
+                        name="_char_embeddings",
+                        dtype=tf.float32,
+                        shape=[self.config.nchars, self.config.dim_char])
+                char_embeddings = tf.nn.embedding_lookup(_char_embeddings,
+                        self.char_ids, name="char_embeddings")
+
+
+                # put the time dimension on axis=1
+                s = tf.shape(char_embeddings)
+                char_embeddings = tf.reshape(char_embeddings,
+                        shape=[s[0]*s[1], s[-2], self.config.dim_char])
+                word_lengths = tf.reshape(self.word_lengths, shape=[s[0]*s[1]])
+
+                # bi lstm on chars
+                cell_fw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
+                        state_is_tuple=True)
+                cell_bw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
+                        state_is_tuple=True)
+                _output = tf.nn.bidirectional_dynamic_rnn(
+                        cell_fw, cell_bw, char_embeddings,
+                        sequence_length=word_lengths, dtype=tf.float32)
+
+                # read and concat output
+                _, ((_, output_fw), (_, output_bw)) = _output
+                output = tf.concat([output_fw, output_bw], axis=-1)
+
+                # shape = (batch size, max sentence length, char hidden size)
+                output = tf.reshape(output,
+                        shape=[s[0], s[1], 2*self.config.hidden_size_char])
+                word_embeddings = tf.concat([word_embeddings, output], axis=-1)
+
+
                 #for dress_left
                 _char_embeddings_dress_left_coup = tf.get_variable(
                         name="_char_embeddings_dress_left_coup",
@@ -441,10 +432,10 @@ class NERModel(BaseModel):
                 word_lengths_dress_left_coup = tf.reshape(self.word_lengths_dress_left_coup, shape=[s[0]*s[1]])
 
                 # bi lstm on chars
-                cell_fw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
-                        state_is_tuple=True)
-                cell_bw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
-                        state_is_tuple=True)
+                # cell_fw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
+                #         state_is_tuple=True)
+                # cell_bw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
+                #         state_is_tuple=True)
                 _output = tf.nn.bidirectional_dynamic_rnn(
                         cell_fw, cell_bw, char_embeddings_dress_left_coup,
                         sequence_length=word_lengths_dress_left_coup, dtype=tf.float32)
@@ -474,10 +465,10 @@ class NERModel(BaseModel):
                 word_lengths_jean_left_coup = tf.reshape(self.word_lengths_jean_left_coup, shape=[s[0]*s[1]])
 
                 # bi lstm on chars
-                cell_fw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
-                        state_is_tuple=True)
-                cell_bw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
-                        state_is_tuple=True)
+                # cell_fw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
+                #         state_is_tuple=True)
+                # cell_bw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
+                #         state_is_tuple=True)
                 _output = tf.nn.bidirectional_dynamic_rnn(
                         cell_fw, cell_bw, char_embeddings_jean_left_coup,
                         sequence_length=word_lengths_jean_left_coup, dtype=tf.float32)
@@ -506,10 +497,10 @@ class NERModel(BaseModel):
                 word_lengths_dress_right_coup = tf.reshape(self.word_lengths_dress_right_coup, shape=[s[0]*s[1]])
 
                 # bi lstm on chars
-                cell_fw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
-                        state_is_tuple=True)
-                cell_bw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
-                        state_is_tuple=True)
+                # cell_fw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
+                #         state_is_tuple=True)
+                # cell_bw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
+                #         state_is_tuple=True)
                 _output = tf.nn.bidirectional_dynamic_rnn(
                         cell_fw, cell_bw, char_embeddings_dress_right_coup,
                         sequence_length=word_lengths_dress_right_coup, dtype=tf.float32)
@@ -539,10 +530,10 @@ class NERModel(BaseModel):
                 word_lengths_jean_right_coup = tf.reshape(self.word_lengths_jean_right_coup, shape=[s[0]*s[1]])
 
                 # bi lstm on chars
-                cell_fw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
-                        state_is_tuple=True)
-                cell_bw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
-                        state_is_tuple=True)
+                # cell_fw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
+                #         state_is_tuple=True)
+                # cell_bw = tf.contrib.rnn.LSTMCell(self.config.hidden_size_char,
+                #         state_is_tuple=True)
                 _output = tf.nn.bidirectional_dynamic_rnn(
                         cell_fw, cell_bw, char_embeddings_jean_right_coup,
                         sequence_length=word_lengths_jean_right_coup, dtype=tf.float32)  
@@ -558,7 +549,7 @@ class NERModel(BaseModel):
 
 
 
-
+        self.word_embeddings =  tf.nn.dropout(word_embeddings, self.dropout)
         self.word_embeddings_dress_left_coup =  tf.nn.dropout(word_embeddings_dress_left_coup, self.dropout)
         self.word_embeddings_jean_left_coup =  tf.nn.dropout(word_embeddings_jean_left_coup, self.dropout)
         self.word_embeddings_dress_right_coup =  tf.nn.dropout(word_embeddings_dress_right_coup, self.dropout)
@@ -854,11 +845,6 @@ class NERModel(BaseModel):
         indices_right_dress = tf.stack([sentno,self.wordPos_right_dress,self.dress_right_tag_id], axis = 1)
         indices_right_jean = tf.stack([sentno,self.wordPos_right_jean,self.jean_right_tag_id], axis = 1)
 
-        # indices_left_dress = tf.Print(indices_left_dress,[indices_left_dress],summarize = 100000, message = "@@LD@@")
-        # indices_left_jean = tf.Print(indices_left_jean,[indices_left_jean],summarize = 100000, message = "@@LJ@@")
-        # indices_right_dress = tf.Print(indices_right_dress,[indices_right_dress],summarize = 100000, message = "@@RD@@")
-        # indices_right_jean = tf.Print(indices_right_jean, [indices_right_jean],summarize = 100000, message = "@@RJ@@")
-
         scores_left_dress = tf.gather_nd(self.logits_dress_left_coup,indices_left_dress)
         scores_left_jean = tf.gather_nd(self.logits_jean_left_coup,indices_left_jean)
         scores_right_dress = tf.gather_nd(self.logits_dress_right_coup,indices_right_dress)
@@ -871,17 +857,13 @@ class NERModel(BaseModel):
         A = tf.nn.softmax(dress_left)
         A /= 900
 
-        # A = tf.Print(A , [A],summarize = 25, message = "@@A@@")
-
         jean_right = tf.multiply(self.window_right_jean,w_alpha_right)
         jean_right = tf.multiply(jean_right,self.window_right_dress)
         jean_right = tf.reduce_sum(jean_right, axis = 1)
         A_ = tf.nn.softmax(jean_right)
         A_ /= 900
 
-        # A_ = tf.Print(A_ , [A_],summarize = 25, message = "@@B@@")
-
-
+   
         iters = tf.constant(self.config.batch_size_coup)
         def cond(cp_loss,i, iters):
             return tf.less(i, iters) 

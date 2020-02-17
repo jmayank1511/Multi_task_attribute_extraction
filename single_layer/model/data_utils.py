@@ -60,16 +60,6 @@ class FKDataset(object):
 
     def __iter__(self):
         niter = 0
-        import pickle
-        with open("tags.pkl", "rb") as o:
-            labelList = pickle.load(o)
-        dress_labels = []
-        jean_labels = []
-        for idx,i in enumerate(labelList):
-            if("_dress" in i ):
-                dress_labels.append(idx)
-            if("_jean" in i):
-                jean_labels.append(idx)
         with open(self.filename) as f:
             f = f.readlines()
             words, tags, verticalno = [], [], -1
@@ -355,7 +345,7 @@ def get_vocabs(datasets):
     vocab_words = set()
     vocab_tags = set()
     for dataset in datasets:
-        for words, tags in dataset:
+        for words, tags,_ in dataset:
             vocab_words.update(words)
             vocab_tags.update(tags)
     print("- done. {} tokens".format(len(vocab_words)))
@@ -373,7 +363,7 @@ def get_char_vocab(dataset):
 
     """
     vocab_char = set()
-    for words, _ in dataset:
+    for words, _, _ in dataset:
         for word in words:
             vocab_char.update(word)
 
